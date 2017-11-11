@@ -18,7 +18,9 @@ describe('jQuery Puppeteer', () => {
 
     await page.goto('http://localhost:3030/demo.html');
 
-    const selector = await inject('h1');
+    // const selector = await inject('h1');
+
+    const selector = 'h1'
 
     const handle = await evalJQuery(($, selector) => {
       const h = $(selector).text();

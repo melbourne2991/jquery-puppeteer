@@ -33,7 +33,9 @@ export default class JQueryPuppeteer {
   jQueryGlobal: string;
 
   constructor(options: Options = defaultOptions) {
-    this.jQueryGlobal = uid(5);
+    // Prepend underscore because sometimes uid will begin with a number
+    this.jQueryGlobal = `_${uid(5)}`;
+    this.jQueryScript = getJQueryScript(options.jQueryPath, this.jQueryGlobal);
     this.options = options;
   }
 
@@ -43,19 +45,10 @@ export default class JQueryPuppeteer {
         if (property === 'goto') {
           return async (url: string, options?: Partial<NavigationOptions>): Promise<Response> => {
             const response = await target.goto(url, options);
-  
-            // Create tmp script file and cache path
-            if (!this.jQueryScript) {
-              this.jQueryScript = await getJQueryScript(this.options.jQueryPath, this.jQueryGlobal);
-            }
 
             await target.addScriptTag({
-              path: this.jQueryScript
-            });
-
-            const waitFn = `!!window[${this.jQueryGlobal}]`;
-            console.log(waitFn);
-            await target.waitForFunction(waitFn);            
+              content: this.jQueryScript
+            });         
 
             return response;
           }
@@ -89,37 +82,8 @@ export default class JQueryPuppeteer {
   }
 }
 
-function getJQueryScript(pathToScript: string, globalName: string): Promise<string> {
-  const noConflictStr = `\nvar ${globalName} = $.noConflict(true);`;
-
-  return new Promise((resolve, reject) => {
-      const tmpObj = tmp.file((err, path, fd, cleanup) => {
-        console.log(`Writing jQuery script to: ${path}`);
-
-        const handleError = (err: any) => {
-          cleanup();
-          return err;
-        };
-
-        const handleSuccess = () => {
-          process.on('exit', () => cleanup);
-          return resolve(path);
-        }
-
-        const target = fs.createWriteStream(path);
-    
-        const src = fs.createReadStream(pathToScript)
-          .on('end', () => {
-            console.log('Read stream ended!')
-            target.write(noConflictStr, () => {
-              target.close();
-            });
-          })
-          .on('error', handleError);
-          
-        src.pipe(target)
-          .on('close', handleSuccess)
-          .on('error', handleError);
-      });
-  });
+function getJQueryScript(pathToScript: string, globalName: string) {
+  const noConflictStr = `\nvar ${globalName} = $.noConflict(true);`;  
+  const script = fs.readFileSync(pathToScript, 'utf-8');
+  return `${script}${noConflictStr}`;
 }
