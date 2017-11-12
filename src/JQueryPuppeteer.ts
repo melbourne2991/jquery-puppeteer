@@ -4,11 +4,11 @@ import * as path from 'path';
 import * as serialize from 'serialize-javascript';
 import * as fs from 'fs';
 import * as uid from 'uid';
-import * as tmp from 'tmp';
 import * as jQuery from 'jquery';
 
 export interface Options {
-  jQueryPath: string
+  jQueryPath: string,
+  noConflict: boolean
 }
 
 export type EvalJqueryFn = ($: JQueryStatic, ...args: any[]) => any;
@@ -17,14 +17,13 @@ export interface EvalJQuery {
   (evalJqueryFn: EvalJqueryFn, ...args: any[]): Promise<puppeteer.JSHandle>
 }
 
-export interface PageJQuery {
-  evalJQuery: EvalJQuery,
-  inject: (val: any) => Promise<puppeteer.JSHandle>,
-  page: puppeteer.Page
+export interface JQueryPageProxy extends puppeteer.Page {
+  evalJQuery: EvalJQuery
 }
 
 const defaultOptions = {
-  jQueryPath: path.join(__dirname, '../jquery/dist/jquery.min.js')
+  jQueryPath: require.resolve('jquery/dist/jquery.min.js'),
+  noConflict: true
 };
 
 export default class JQueryPuppeteer {
@@ -34,12 +33,24 @@ export default class JQueryPuppeteer {
 
   constructor(options: Options = defaultOptions) {
     // Prepend underscore because sometimes uid will begin with a number
-    this.jQueryGlobal = `_${uid(5)}`;
-    this.jQueryScript = getJQueryScript(options.jQueryPath, this.jQueryGlobal);
+    this.jQueryGlobal = options.noConflict ? `_${uid(5)}` : '$';
+    this.jQueryScript = getJQueryScript(options.jQueryPath, this.jQueryGlobal, options.noConflict);
     this.options = options;
   }
 
-  getPageProxy(page: puppeteer.Page): PageJQuery {
+  getPageProxy(page: puppeteer.Page): JQueryPageProxy {
+    const evalJQuery = async (jqueryFn: EvalJqueryFn, ...args: any[]): Promise<any> => {
+      const jqueryFnStr = serialize(jqueryFn);
+
+      const injectedFn = await inject(jqueryFn);
+
+      let window: any;
+
+      return page.evaluateHandle((jQueryGlobalRef, injectedFn, ...args) => {
+        return injectedFn(window[jQueryGlobalRef], ...args);
+      }, this.jQueryGlobal, injectedFn, ...args);
+    };
+
     const proxyPage = new Proxy(page, {
       get: (target: puppeteer.Page, property: string): any => {
         if (property === 'goto') {
@@ -53,37 +64,31 @@ export default class JQueryPuppeteer {
             return response;
           }
         }
+
+        if (property === 'evalJQuery') {
+          return evalJQuery;
+        }
+
         return (target as any)[property];
       }
-    })
-  
-    const evalJQuery = async (jqueryFn: EvalJqueryFn, ...args: any[]): Promise<any> => {
-      const jqueryFnStr = serialize(jqueryFn);
-
-      let window: any;
-
-      const injectedFn = await inject(jqueryFn);
-      
-      return page.evaluateHandle((jQueryGlobalRef, injectedFn, ...args) => {
-        return injectedFn(window[jQueryGlobalRef], ...args);
-      }, this.jQueryGlobal, injectedFn, ...args);
-    }
+    });
 
     async function inject(val: any) {
       const serialized = serialize(val);
       return page.evaluateHandle(serialized);
     }
   
-    return {
-      inject,
-      page: proxyPage as puppeteer.Page,
-      evalJQuery: evalJQuery
-    };
+    return proxyPage as JQueryPageProxy;
   }
 }
 
-function getJQueryScript(pathToScript: string, globalName: string) {
-  const noConflictStr = `\nvar ${globalName} = $.noConflict(true);`;  
+function getJQueryScript(pathToScript: string, globalName: string, noConflict: boolean) {
   const script = fs.readFileSync(pathToScript, 'utf-8');
+
+  if (!noConflict) {
+    return script;
+  }
+
+  const noConflictStr = `\nvar ${globalName} = $.noConflict(true);`;
   return `${script}${noConflictStr}`;
 }

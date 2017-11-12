@@ -1,0 +1,5 @@
+!dist
+jest
+static
+run-functional.js
+ts-config.json
