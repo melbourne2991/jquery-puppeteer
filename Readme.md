@@ -6,6 +6,7 @@ Also ensures that there is no conflict with any other jQuery on the page by call
 Install with `yarn add @melb2991/jquery-puppeteer` or `npm install @melb2991/jquery-puppeteer --save`
 
 ```javascript
+    const puppeteer = require('puppeteer');
     const JQueryPuppeteer = require('@melb2991/jquery-puppeteer');
 
     const jqueryPuppeteer = new JQueryPuppeteer({
