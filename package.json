@@ -5,6 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "prepare": "npm run package",
+    "package": "npm-run-all build test --sequential",
     "start": "node ./dist",
     "build": "tsc",
     "build-and-run": "npm run build && npm run start",
