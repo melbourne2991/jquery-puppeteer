@@ -4,3 +4,5 @@ static
 run-functional.js
 ts-config.json
 __tests__
+*.iml
+.idea
