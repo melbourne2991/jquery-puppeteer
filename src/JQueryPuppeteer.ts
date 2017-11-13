@@ -1,5 +1,5 @@
 import * as puppeteer from 'puppeteer';
-import { NavigationOptions, Response } from "puppeteer";
+import { NavigationOptions, Response, JSHandle } from "puppeteer";
 import * as path from 'path';
 import * as serialize from 'serialize-javascript';
 import * as fs from 'fs';
@@ -23,6 +23,8 @@ export interface JQueryPageProxy extends puppeteer.Page {
   evalJQuery: EvalJQuery
 }
 
+export type InjectorFn = (val: any) => Promise<JSHandle>
+
 const defaultOptions = {
   jQueryPath: require.resolve('jquery/dist/jquery.min.js'),
   noConflict: true
@@ -41,7 +43,7 @@ export default class JQueryPuppeteer {
   }
 
   // For advanced usage can be overriden. Eg. if stringfying of function needs to be done by consumer
-  getInjector(serialize: Serializer, page: puppeteer.Page) {
+  getInjector(serialize: Serializer, page: puppeteer.Page): InjectorFn {
     return (val: any) => {
       const serialized = serialize(val);
       return page.evaluateHandle(serialized);
