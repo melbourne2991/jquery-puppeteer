@@ -16,11 +16,16 @@ export type Serializer = typeof serialize;
 export type EvalJqueryFn = ($: JQueryStatic, ...args: any[]) => any;
 
 export interface EvalJQuery {
-  (evalJqueryFn: EvalJqueryFn, ...args: any[]): Promise<puppeteer.JSHandle>
+  (evalJqueryFn: EvalJqueryFn, ...args: any[]): Promise<JSHandle>
+}
+
+export interface EvalJqueryFnString {
+  (jqueryFnString: string, ...args: any[]): Promise<JSHandle>
 }
 
 export interface JQueryPageProxy extends puppeteer.Page {
-  evalJQuery: EvalJQuery
+  evalJQuery: EvalJQuery,
+  evalJQueryFnString: EvalJqueryFnString
 }
 
 export type InjectorFn = (val: any) => Promise<JSHandle>
@@ -42,27 +47,25 @@ export default class JQueryPuppeteer {
     this.options = options;
   }
 
-  // For advanced usage can be overriden. Eg. if stringfying of function needs to be done by consumer
-  getInjector(serialize: Serializer, page: puppeteer.Page): InjectorFn {
-    return (val: any) => {
-      const serialized = serialize(val);
-      return page.evaluateHandle(serialized);
-    }
-  }
-
   getPageProxy(page: puppeteer.Page): JQueryPageProxy {
-    const inject = this.getInjector(serialize, page);
-
-    const evalJQuery = async (jqueryFn: EvalJqueryFn, ...args: any[]): Promise<any> => {
-      const jqueryFnStr = serialize(jqueryFn);
-
-      const injectedFn = await inject(jqueryFn);
-
+    const evalJqueryInjectedFn = async (injectedFn: JSHandle, ...args: any[]): Promise<JSHandle> => {
       let window: any;
-
+    
       return page.evaluateHandle((jQueryGlobalRef, injectedFn, ...args) => {
         return injectedFn(window[jQueryGlobalRef], ...args);
       }, this.jQueryGlobal, injectedFn, ...args);
+    }
+
+    const evalJQueryFnString = async (jqueryFnStr: string, ...args: any[]) => {
+      const injectedFn = await page.evaluateHandle(jqueryFnStr);
+      return evalJqueryInjectedFn(injectedFn, ...args);
+    }
+
+    const evalJQuery = async (jqueryFn: EvalJqueryFn, ...args: any[]): Promise<JSHandle> => {
+      const serialized = serialize(jqueryFn);      
+      const injectedFn = await page.evaluateHandle(serialized);   
+
+      return evalJqueryInjectedFn(injectedFn, ...args);
     };
 
     const proxyPage = new Proxy(page, {
@@ -81,6 +84,10 @@ export default class JQueryPuppeteer {
 
         if (property === 'evalJQuery') {
           return evalJQuery;
+        }
+
+        if (property === 'evalJQueryFnString') {
+          return evalJQueryFnString;
         }
 
         return (target as any)[property];
