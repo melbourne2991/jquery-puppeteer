@@ -1,8 +1,9 @@
 {
-  "name": "@melb2991/puppeteer-jquery",
+  "name": "@melb2991/jquery-puppeteer",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "start": "node ./dist",
     "build": "tsc",
@@ -11,7 +12,7 @@
     "jest-unit": "jest --config ./jest/jest.unit.config.js",
     "test:functional": "node ./run-functional",
     "test:unit": "npm run jest-unit",
-    "test": "npm-run-all test:*"
+    "test": "npm-run-all test:* --sequential"
   },
   "author": "",
   "license": "MIT",

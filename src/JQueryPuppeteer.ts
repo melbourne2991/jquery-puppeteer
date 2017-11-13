@@ -11,6 +11,8 @@ export interface Options {
   noConflict: boolean
 }
 
+export type Serializer = typeof serialize;
+
 export type EvalJqueryFn = ($: JQueryStatic, ...args: any[]) => any;
 
 export interface EvalJQuery {
@@ -38,7 +40,17 @@ export default class JQueryPuppeteer {
     this.options = options;
   }
 
+  // For advanced usage can be overriden. Eg. if stringfying of function needs to be done by consumer
+  getInjector(serialize: Serializer, page: puppeteer.Page) {
+    return (val: any) => {
+      const serialized = serialize(val);
+      return page.evaluateHandle(serialized);
+    }
+  }
+
   getPageProxy(page: puppeteer.Page): JQueryPageProxy {
+    const inject = this.getInjector(serialize, page);
+
     const evalJQuery = async (jqueryFn: EvalJqueryFn, ...args: any[]): Promise<any> => {
       const jqueryFnStr = serialize(jqueryFn);
 
@@ -72,11 +84,6 @@ export default class JQueryPuppeteer {
         return (target as any)[property];
       }
     });
-
-    async function inject(val: any) {
-      const serialized = serialize(val);
-      return page.evaluateHandle(serialized);
-    }
   
     return proxyPage as JQueryPageProxy;
   }
