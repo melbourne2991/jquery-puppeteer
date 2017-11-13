@@ -6,3 +6,5 @@ ts-config.json
 __tests__
 *.iml
 .idea
+src
+*.log
