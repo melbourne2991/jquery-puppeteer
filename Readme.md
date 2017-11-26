@@ -3,7 +3,8 @@ Provides a proxy for a puppeteer `page` object, that will add jQuery on each cal
 Also ensures that there is no conflict with any other jQuery on the page by calling noConflict and assigning to `window[<random hash>]` so as not to interfere with any other functionality in the page. 
 
 ## Usage
-Install with `yarn add @melb2991/jquery-puppeteer` or `npm install @melb2991/jquery-puppeteer --save`
+- Install jquery `npm install jquery --save`
+- Install with `yarn add @melb2991/jquery-puppeteer` or `npm install @melb2991/jquery-puppeteer --save`
 
 ```javascript
     const puppeteer = require('puppeteer');
